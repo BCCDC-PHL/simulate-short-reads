@@ -1,0 +1,13 @@
+name: simulate-reads
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3
+  - fastp=0.23.1
+  - simug=1.0.0
+  - art=2016.06.05
+  - bwa=0.7.17
+  - samtools=1.14
+  - qualimap=2.2.2d
