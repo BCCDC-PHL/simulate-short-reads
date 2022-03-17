@@ -9,5 +9,6 @@ dependencies:
   - simug=1.0.0
   - art=2016.06.05
   - bwa=0.7.17
-  - samtools=1.14
+  - samtools
   - qualimap=2.2.2d
+  - mosdepth=0.3.2
