@@ -43,6 +43,17 @@ eight mean coverage depths: 5x, 15x, 25x, 35x, 50x, 75x, 100x, 150x.
 | `quality_shift_r2`      | The amount to shift every second-read quality score by.                                                                    | 0       |
 | `replicates`            | Number of replicates to generate for each genome, at each depth.                                                           | 1       |
 
+### Introducing Contamination
+Contamination can be introduced using the `--contaminants` parameter. The flag takes a `.csv` formatted file as an argument, with the following fields:
+
+```
+ID
+ASSEMBLY
+PROPORTION
+```
+
+...where `ID` is an identifier for the contaminant (avoid using spaces in the identifier), `ASSEMBLY` is a path to a FASTA-formatted genome that contaminant reads will be simulated from, and `PROPORTION` is a floating point number between 0 and 1 that determines the proportion of the sample that is contaminated by that genome. The sum of the values in the `PROPOTION` field should not be greater than 1.
+
 ## Outputs
 The pipeline creates one output directory per set of simulated reads, below the directory provided for the `--outdir` parameter. The output directories are named
 using the filename of the input reference genomes (excluding the file extension), with the additon of a 4-character string that is derived from the MD5 checksum of

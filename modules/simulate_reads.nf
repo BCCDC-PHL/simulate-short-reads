@@ -19,7 +19,7 @@ process art_illumina {
     quality_shift_r2 = params.quality_shift_r2
     read_length = params.read_length
     seed = Math.round(Math.random() * 1000000)
-    md5_input = assembly_id + fold_coverage.toString() + read_length.toString() + mean_fragment_length.toString() + stdev_fragment_length.toString() + seed.toString()
+    md5_input = assembly_id + fold_coverage.toString() + read_length.toString() + mean_fragment_length.toString() + stdev_fragment_length.toString() + seed.toString() + quality_shift_r1.toString() + quality_shift_r2.toString()
     md5_fragment = md5_input.md5()[0..3]
     output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
     """
@@ -28,7 +28,7 @@ process art_illumina {
       --in ${assembly} \
       --fcov ${fold_coverage} \
       --len ${read_length} \
-      --mflen ${params.mean_fragment_length} \
+      --mflen ${mean_fragment_length} \
       --sdev ${stdev_fragment_length} \
       --rndSeed ${seed} \
       --qShift ${params.quality_shift_r1} \
@@ -40,6 +40,97 @@ process art_illumina {
     echo 'sample_id,replicate,random_seed,fold_coverage,read_length,mean_fragment_length,stdev_fragment_length,quality_shift_r1,quality_shift_r2' > ${assembly_id}-${md5_fragment}_read_simulation_parameters.csv
     echo '${assembly_id}-${md5_fragment},${replicate},${seed},${fold_coverage},${read_length},${mean_fragment_length},${stdev_fragment_length},${quality_shift_r1},${quality_shift_r2}' >> ${assembly_id}-${md5_fragment}_read_simulation_parameters.csv
     """
+}
+
+process simulate_contaminant_reads {
+
+    tag { contaminant_id + ' / ' + proportion}
+
+    input:
+    tuple val(contaminant_id), path(assembly), val(proportion)
+
+    output:
+    tuple val(contaminant_id), path("${contaminant_id}*_R1.fastq"), path("${contaminant_id}*_R2.fastq"), val(proportion)
+
+    script:
+    mean_fragment_length = params.mean_fragment_length
+    stdev_fragment_length = params.stdev_fragment_length
+    quality_shift_r1 = params.quality_shift_r1
+    quality_shift_r2 = params.quality_shift_r2
+    read_length = params.read_length
+    seed = Math.round(Math.random() * 1000000)
+    """
+    art_illumina \
+      --paired \
+      --in ${assembly} \
+      --fcov 30 \
+      --len ${read_length} \
+      --mflen ${mean_fragment_length} \
+      --sdev ${stdev_fragment_length} \
+      --rndSeed ${seed} \
+      --qShift ${params.quality_shift_r1} \
+      --qShift2 ${params.quality_shift_r2} \
+      --out ${contaminant_id}_R
+    mv ${contaminant_id}_R1.fq ${contaminant_id}_R1.fastq
+    mv ${contaminant_id}_R2.fq ${contaminant_id}_R2.fastq
+    """
+}
+
+process downsample_simulated_reads {
+  tag { assembly_id + '-' + md5_fragment + ' / ' + proportion }
+
+  input:
+  tuple val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2), val(proportion)
+
+  output:
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}*_R1.fastq"), path("${assembly_id}-${md5_fragment}*_R2.fastq")
+
+  script:
+  seed = Math.round(Math.random() * 1000000)
+  """
+  seqkit sample -s ${seed} -p ${proportion} ${assembly_reads_r1} -o ${assembly_id}-${md5_fragment}_sample_R1.fastq
+  seqkit sample -s ${seed} -p ${proportion} ${assembly_reads_r2} -o ${assembly_id}-${md5_fragment}_sample_R2.fastq
+  """
+}
+
+process downsample_contaminant_reads {
+
+  tag { contaminant_id + ' / ' + contaminant_proportion }
+
+  input:
+  tuple val(contaminant_id), path(contaminant_reads_r1), path(contaminant_reads_r2), val(contaminant_proportion), val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2)
+
+  output:
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq"), path("${contaminant_id}_sample_R2.fastq")
+
+  script:
+  seed = Math.round(Math.random() * 1000000)
+  """
+  seqkit stats -T ${assembly_reads_r1} | tail -n 1 | cut -f 4 | tr -d ',' > num_simulated_reads
+  python -c "import sys; print(int(round(int(sys.stdin.read().strip()) * ${contaminant_proportion})))" < num_simulated_reads > num_contaminant_reads
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_reads) ${contaminant_reads_r1} > ${contaminant_id}_sample_R1.fastq
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_reads) ${contaminant_reads_r2} > ${contaminant_id}_sample_R2.fastq
+  """
+}
+
+process introduce_contaminants {
+
+  tag { assembly_id + '-' + md5_fragment }
+
+  input:
+  tuple val(assembly_id), val(md5_fragment), path(assembly_r1), path(assembly_r2), val(contaminant_ids), path(contaminants_r1), path(contaminants_r2)
+
+  output:
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R1.fastq.gz"), path("${assembly_id}-${md5_fragment}_R2.fastq.gz")
+
+  script:
+  seed = Math.round(Math.random() * 1000000)
+  """
+  cat ${assembly_r1} ${contaminants_r1} > ${assembly_id}-${md5_fragment}_R1.fastq
+  cat ${assembly_r2} ${contaminants_r2} > ${assembly_id}-${md5_fragment}_R2.fastq
+  gzip ${assembly_id}-${md5_fragment}_R*.fastq
+  """
+
 }
 
 process fastp {
