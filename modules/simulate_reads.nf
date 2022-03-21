@@ -77,39 +77,49 @@ process simulate_contaminant_reads {
 }
 
 process downsample_simulated_reads {
-  tag { assembly_id + '-' + md5_fragment + ' / ' + proportion }
+  tag { assembly_id + '-' + md5_fragment + ' / ' + proportion_uncontaminated }
 
   input:
-  tuple val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2), val(proportion)
+  tuple val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2), val(proportion_contaminants)
 
   output:
   tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}*_R1.fastq"), path("${assembly_id}-${md5_fragment}*_R2.fastq")
 
   script:
+  proportion_uncontaminated = 1.0 - proportion_contaminants
   seed = Math.round(Math.random() * 1000000)
   """
-  seqkit sample -s ${seed} -p ${proportion} ${assembly_reads_r1} -o ${assembly_id}-${md5_fragment}_sample_R1.fastq
-  seqkit sample -s ${seed} -p ${proportion} ${assembly_reads_r2} -o ${assembly_id}-${md5_fragment}_sample_R2.fastq
+  seqkit sample -s ${seed} -p ${proportion_uncontaminated} ${assembly_reads_r1} -o ${assembly_id}-${md5_fragment}_sample_R1.fastq
+  seqkit sample -s ${seed} -p ${proportion_uncontaminated} ${assembly_reads_r2} -o ${assembly_id}-${md5_fragment}_sample_R2.fastq
   """
 }
 
 process downsample_contaminant_reads {
 
-  tag { contaminant_id + ' / ' + contaminant_proportion }
+  tag { assembly_id + '-' + md5_fragment + ' / ' + contaminant_id + ' / ' + contaminant_proportion }
+
+  publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${contaminant_id}_sample_R*.fastq.gz", mode: 'copy'
+  publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv", mode: 'copy'
 
   input:
   tuple val(contaminant_id), path(contaminant_reads_r1), path(contaminant_reads_r2), val(contaminant_proportion), val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2)
 
   output:
-  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq"), path("${contaminant_id}_sample_R2.fastq")
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq"), path("${contaminant_id}_sample_R2.fastq"), emit: uncompressed_reads
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq.gz"), path("${contaminant_id}_sample_R2.fastq.gz"), emit: compressed_reads
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv"), emit: num_reads_csv
 
   script:
+  output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
   seed = Math.round(Math.random() * 1000000)
   """
-  seqkit stats -T ${assembly_reads_r1} | tail -n 1 | cut -f 4 | tr -d ',' > num_simulated_reads
-  python -c "import sys; print(int(round(int(sys.stdin.read().strip()) * ${contaminant_proportion})))" < num_simulated_reads > num_contaminant_reads
-  seqkit sample -s ${seed} -n \$(cat num_contaminant_reads) ${contaminant_reads_r1} > ${contaminant_id}_sample_R1.fastq
-  seqkit sample -s ${seed} -n \$(cat num_contaminant_reads) ${contaminant_reads_r2} > ${contaminant_id}_sample_R2.fastq
+  seqkit stats -T ${assembly_reads_r1} | tail -n 1 | cut -f 4 | tr -d ',' > num_simulated_read_pairs
+  echo 'sample_id,contaminant_id,num_simulated_read_pairs,num_contaminant_read_pairs,target_contaminant_proportion' > ${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv
+  python -c "import sys; print(int(round(int(sys.stdin.read().strip()) * ${contaminant_proportion})))" < num_simulated_read_pairs > num_contaminant_read_pairs
+  paste -d ',' <(echo "${assembly_id}-${md5_fragment}") <(echo "${contaminant_id}") num_simulated_read_pairs num_contaminant_read_pairs <(echo "${contaminant_proportion}") >> ${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r1} > ${contaminant_id}_sample_R1.fastq
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r2} > ${contaminant_id}_sample_R2.fastq
+  gzip --keep ${contaminant_id}_sample_R*.fastq
   """
 }
 
@@ -126,11 +136,14 @@ process introduce_contaminants {
   script:
   seed = Math.round(Math.random() * 1000000)
   """
-  cat ${assembly_r1} ${contaminants_r1} > ${assembly_id}-${md5_fragment}_R1.fastq
-  cat ${assembly_r2} ${contaminants_r2} > ${assembly_id}-${md5_fragment}_R2.fastq
+  mv ${assembly_r1} uncontaminated_R1.fastq
+  mv ${assembly_r2} uncontaminated_R2.fastq
+  cat uncontaminated_R1.fastq ${contaminants_r1} > ${assembly_id}-${md5_fragment}_unshuffled_R1.fastq
+  cat uncontaminated_R2.fastq ${contaminants_r2} > ${assembly_id}-${md5_fragment}_unshuffled_R2.fastq
+  paste <(cat ${assembly_id}-${md5_fragment}_unshuffled_R1.fastq) <(cat ${assembly_id}-${md5_fragment}_unshuffled_R2.fastq) \
+    | paste - - - - | shuf | awk -F'\\t' '{OFS="\\n"; print \$1,\$3,\$5,\$7 > "${assembly_id}-${md5_fragment}_R1.fastq"; print \$2,\$4,\$6,\$8 > "${assembly_id}-${md5_fragment}_R2.fastq"}'
   gzip ${assembly_id}-${md5_fragment}_R*.fastq
   """
-
 }
 
 process fastp {
@@ -144,33 +157,14 @@ process fastp {
 
   output:
   tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_fastp.json"), emit: json
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_fastp.csv"), emit: csv
 
   script:
   output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
   """
   fastp -i ${reads_1} -I ${reads_2} -o ${assembly_id}-${md5_fragment}_trimmed_R1.fastq.gz -O ${assembly_id}-${md5_fragment}_trimmed_R2.fastq.gz
   mv fastp.json ${assembly_id}-${md5_fragment}_fastp.json
-  """
-}
-
-process fastp_json_to_csv {
-
-  tag { assembly_id + '-' + md5_fragment }
-
-  publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_fastp.csv", mode: 'copy'
-
-  executor 'local'
-
-  input:
-  tuple val(assembly_id), val(md5_fragment), path(fastp_json)
-
-  output:
-  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_fastp.csv")
-
-  script:
-  output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
-  """
-  fastp_json_to_csv.py -s ${assembly_id}-${md5_fragment} ${fastp_json} > ${assembly_id}-${md5_fragment}_fastp.csv
+  fastp_json_to_csv.py -s ${assembly_id}-${md5_fragment} ${assembly_id}-${md5_fragment}_fastp.json > ${assembly_id}-${md5_fragment}_fastp.csv
   """
 }
 
