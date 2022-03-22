@@ -129,7 +129,7 @@ process introduce_contaminants {
   tuple val(assembly_id), val(md5_fragment), path(assembly_r1), path(assembly_r2), val(contaminant_ids), path(contaminants_r1), path(contaminants_r2)
 
   output:
-  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R1.fastq"), path("${assembly_id}-${md5_fragment}_R2.fastq")
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R1.fastq"), path("${assembly_id}-${md5_fragment}_R2.fastq"), emit: reads
 
   script:
   seed = Math.round(Math.random() * 1000000)

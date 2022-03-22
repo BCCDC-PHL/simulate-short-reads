@@ -26,9 +26,11 @@ workflow {
     ch_proportion_uncontaminated = ch_contaminants.map{ it -> Float.parseFloat(it[2]) }.reduce{ x, y -> (x + y).round(6) }
     downsample_simulated_reads(simulate_reads.out.reads.combine(ch_proportion_uncontaminated))
     downsample_contaminant_reads(simulate_contaminant_reads.out.combine(simulate_reads.out.reads))
-    ch_reads = introduce_contaminants(downsample_simulated_reads.out.join(downsample_contaminant_reads.out.uncompressed_reads.groupTuple(by: [0, 1]), by: [0, 1]))
+    introduce_contaminants(downsample_simulated_reads.out.join(downsample_contaminant_reads.out.uncompressed_reads.groupTuple(by: [0, 1]), by: [0, 1]))
+    ch_reads = introduce_contaminants.out.reads
   } else {
-    ch_reads = simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates)).out.reads
+    simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
+    ch_reads = simulate_reads.out.reads
   }
 
   main:
