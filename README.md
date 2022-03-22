@@ -43,13 +43,23 @@ eight mean coverage depths: 5x, 15x, 25x, 35x, 50x, 75x, 100x, 150x.
 | `quality_shift_r2`      | The amount to shift every second-read quality score by.                                                                    | 0       |
 | `replicates`            | Number of replicates to generate for each genome, at each depth.                                                           | 1       |
 
+### Introducing Contamination
+Contamination can be introduced using the `--contaminants` parameter. The flag takes a `.csv` formatted file as an argument, with the following fields:
+
+```
+ID
+ASSEMBLY
+PROPORTION
+```
+
+...where `ID` is an identifier for the contaminant (avoid using spaces in the identifier), `ASSEMBLY` is a path to a FASTA-formatted genome that contaminant reads will be simulated from, and `PROPORTION` is a floating point number between 0 and 1 that determines the proportion of the sample that is contaminated by that genome. The sum of the values in the `PROPOTION` field should not be greater than 1.
+
 ## Outputs
 The pipeline creates one output directory per set of simulated reads, below the directory provided for the `--outdir` parameter. The output directories are named
 using the filename of the input reference genomes (excluding the file extension), with the additon of a 4-character string that is derived from the MD5 checksum of
 the sample ID and the parameters used to generate the simulated reads.
 
-For example, if we were to run this pipeline on a reference genome called [`ATCC-BAA-2787.fasta`](https://genomes.atcc.org/genomes/680bf0f0947a443c), and output the files
-into a directory named `output`, the pipeline would produce the following outputs:
+For example, if we were to run this pipeline on a reference genome called [`ATCC-BAA-2787.fasta`](https://genomes.atcc.org/genomes/680bf0f0947a443c), including three contaminant genomes ([`ATCC-BAA-3053`](https://genomes.atcc.org/genomes/0c1563977c244589), [`ATCC-BAA-3038`](https://genomes.atcc.org/genomes/67f3a5f5558b4da1), [`ATCC-BAA-710`](https://genomes.atcc.org/genomes/100b594ab4114233)), and output the files  into a directory named `output`, the pipeline would produce the following outputs:
 
 ```
 output
@@ -63,7 +73,17 @@ output
 │   ├── ATCC-BAA-2787-083b_R1.fastq.gz
 │   ├── ATCC-BAA-2787-083b_R2.fastq.gz
 │   ├── ATCC-BAA-2787-083b_read_simulation_parameters.csv
-│   └── ATCC-BAA-2787-083b_samtools_stats_summary.txt
+│   ├── ATCC-BAA-2787-083b_samtools_stats_summary.txt
+│   └── contaminants
+│       ├── ATCC-BAA-2787-083b-ATCC-BAA-3038_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-2787-083b-ATCC-BAA-3053_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-2787-083b-ATCC-BAA-710_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-3038_contaminant_R1.fastq.gz
+│       ├── ATCC-BAA-3038_contaminant_R2.fastq.gz
+│       ├── ATCC-BAA-3053_contaminant_R1.fastq.gz
+│       ├── ATCC-BAA-3053_contaminant_R2.fastq.gz
+│       ├── ATCC-BAA-710_contaminant_R1.fastq.gz
+│       └── ATCC-BAA-710_contaminant_R2.fastq.gz
 ├── ATCC-BAA-2787-096a
 │   ├── ATCC-BAA-2787-096a.bam
 │   ├── ATCC-BAA-2787-096a.bam.bai
@@ -74,7 +94,17 @@ output
 │   ├── ATCC-BAA-2787-096a_R1.fastq.gz
 │   ├── ATCC-BAA-2787-096a_R2.fastq.gz
 │   ├── ATCC-BAA-2787-096a_read_simulation_parameters.csv
-│   └── ATCC-BAA-2787-096a_samtools_stats_summary.txt
+│   ├── ATCC-BAA-2787-096a_samtools_stats_summary.txt
+│   └── contaminants
+│       ├── ATCC-BAA-2787-096a-ATCC-BAA-3038_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-2787-096a-ATCC-BAA-3053_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-2787-096a-ATCC-BAA-710_num_contaminant_read_pairs.csv
+│       ├── ATCC-BAA-3038_contaminant_R1.fastq.gz
+│       ├── ATCC-BAA-3038_contaminant_R2.fastq.gz
+│       ├── ATCC-BAA-3053_contaminant_R1.fastq.gz
+│       ├── ATCC-BAA-3053_contaminant_R2.fastq.gz
+│       ├── ATCC-BAA-710_contaminant_R1.fastq.gz
+│       └── ATCC-BAA-710_contaminant_R2.fastq.gz
 ...
 ```
 
@@ -121,3 +151,15 @@ stdev_fragment_length
 quality_shift_r1
 quality_shift_r2
 ```
+
+If contaminants are included, then a `contaminants` sub-directory will be created within each output directory. That directory includes files named with the simulated library ID and the contaminant ID, followed by `_num_contaminant_read_pairs.csv`. Those files have the following headers:
+
+```
+sample_id
+contaminant_id
+num_simulated_read_pairs
+num_contaminant_read_pairs
+target_contaminant_proportion
+```
+
+In addition to the `_num_contaminant_read_pairs.csv` files, the reads that were used as contaminants are also included in the `contaminants` directory.

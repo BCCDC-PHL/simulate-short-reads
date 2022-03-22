@@ -12,3 +12,4 @@ dependencies:
   - samtools
   - qualimap=2.2.2d
   - mosdepth=0.3.2
+  - seqkit=2.2.0
