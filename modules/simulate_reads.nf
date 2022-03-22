@@ -96,15 +96,15 @@ process downsample_contaminant_reads {
 
   tag { assembly_id + '-' + md5_fragment + ' / ' + contaminant_id + ' / ' + contaminant_proportion }
 
-  publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${contaminant_id}_sample_R*.fastq.gz", mode: 'copy'
+  publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${contaminant_id}_contaminant_R*.fastq.gz", mode: 'copy'
   publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv", mode: 'copy'
 
   input:
   tuple val(contaminant_id), path(contaminant_reads_r1), path(contaminant_reads_r2), val(contaminant_proportion), val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2)
 
   output:
-  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq"), path("${contaminant_id}_sample_R2.fastq"), emit: uncompressed_reads
-  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_sample_R1.fastq.gz"), path("${contaminant_id}_sample_R2.fastq.gz"), emit: compressed_reads
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_contaminant_R1.fastq"), path("${contaminant_id}_contaminant_R2.fastq"), emit: uncompressed_reads
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_contaminant_R1.fastq.gz"), path("${contaminant_id}_contaminant_R2.fastq.gz"), emit: compressed_reads
   tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv"), emit: num_reads_csv
 
   script:
@@ -115,9 +115,9 @@ process downsample_contaminant_reads {
   echo 'sample_id,contaminant_id,num_simulated_read_pairs,num_contaminant_read_pairs,target_contaminant_proportion' > ${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv
   python -c "import sys; print(int(round(int(sys.stdin.read().strip()) * ${contaminant_proportion})))" < num_simulated_read_pairs > num_contaminant_read_pairs
   paste -d ',' <(echo "${assembly_id}-${md5_fragment}") <(echo "${contaminant_id}") num_simulated_read_pairs num_contaminant_read_pairs <(echo "${contaminant_proportion}") >> ${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv
-  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r1} > ${contaminant_id}_sample_R1.fastq
-  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r2} > ${contaminant_id}_sample_R2.fastq
-  gzip --keep ${contaminant_id}_sample_R*.fastq
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r1} > ${contaminant_id}_contaminant_R1.fastq
+  seqkit sample -s ${seed} -n \$(cat num_contaminant_read_pairs) ${contaminant_reads_r2} > ${contaminant_id}_contaminant_R2.fastq
+  gzip --keep ${contaminant_id}_contaminant_R*.fastq
   """
 }
 
