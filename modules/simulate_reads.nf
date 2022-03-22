@@ -2,14 +2,13 @@ process art_illumina {
 
     tag { assembly_id + ' / ' + fold_coverage + 'x' + ' / ' + 'len=' + read_length + ' / ' + 'replicate=' + replicate }
 
-    publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}*_R{1,2}.fastq.gz", mode: 'copy'
     publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}*_read_simulation_parameters.csv", mode: 'copy'
 
     input:
     tuple val(assembly_id), path(assembly), val(fold_coverage), val(replicate)
 
     output:
-    tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}*_R1.fastq.gz"), path("${assembly_id}-${md5_fragment}*_R2.fastq.gz"), emit: reads
+    tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}*_R1.fastq"), path("${assembly_id}-${md5_fragment}*_R2.fastq"), emit: reads
     tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_read_simulation_parameters.csv"), emit: metrics
 
     script:
@@ -36,7 +35,6 @@ process art_illumina {
       --out ${assembly_id}-${md5_fragment}_R
     mv ${assembly_id}-${md5_fragment}_R1.fq ${assembly_id}-${md5_fragment}_R1.fastq
     mv ${assembly_id}-${md5_fragment}_R2.fq ${assembly_id}-${md5_fragment}_R2.fastq
-    gzip ${assembly_id}-${md5_fragment}*.fastq
     echo 'sample_id,replicate,random_seed,fold_coverage,read_length,mean_fragment_length,stdev_fragment_length,quality_shift_r1,quality_shift_r2' > ${assembly_id}-${md5_fragment}_read_simulation_parameters.csv
     echo '${assembly_id}-${md5_fragment},${replicate},${seed},${fold_coverage},${read_length},${mean_fragment_length},${stdev_fragment_length},${quality_shift_r1},${quality_shift_r2}' >> ${assembly_id}-${md5_fragment}_read_simulation_parameters.csv
     """
@@ -131,7 +129,7 @@ process introduce_contaminants {
   tuple val(assembly_id), val(md5_fragment), path(assembly_r1), path(assembly_r2), val(contaminant_ids), path(contaminants_r1), path(contaminants_r2)
 
   output:
-  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R1.fastq.gz"), path("${assembly_id}-${md5_fragment}_R2.fastq.gz")
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R1.fastq"), path("${assembly_id}-${md5_fragment}_R2.fastq")
 
   script:
   seed = Math.round(Math.random() * 1000000)
@@ -142,7 +140,6 @@ process introduce_contaminants {
   cat uncontaminated_R2.fastq ${contaminants_r2} > ${assembly_id}-${md5_fragment}_unshuffled_R2.fastq
   paste <(cat ${assembly_id}-${md5_fragment}_unshuffled_R1.fastq) <(cat ${assembly_id}-${md5_fragment}_unshuffled_R2.fastq) \
     | paste - - - - | shuf | awk -F'\\t' '{OFS="\\n"; print \$1,\$3,\$5,\$7 > "${assembly_id}-${md5_fragment}_R1.fastq"; print \$2,\$4,\$6,\$8 > "${assembly_id}-${md5_fragment}_R2.fastq"}'
-  gzip ${assembly_id}-${md5_fragment}_R*.fastq
   """
 }
 
@@ -150,6 +147,7 @@ process fastp {
 
   tag { assembly_id + '-' + md5_fragment }
 
+  publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_R{1,2}.fastq.gz", mode: 'copy'
   publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_fastp.json", mode: 'copy'
 
   input:
@@ -158,6 +156,7 @@ process fastp {
   output:
   tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_fastp.json"), emit: json
   tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_fastp.csv"), emit: csv
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_R{1,2}.fastq.gz"), emit: untrimmed_reads
 
   script:
   output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
@@ -165,6 +164,10 @@ process fastp {
   fastp -i ${reads_1} -I ${reads_2} -o ${assembly_id}-${md5_fragment}_trimmed_R1.fastq.gz -O ${assembly_id}-${md5_fragment}_trimmed_R2.fastq.gz
   mv fastp.json ${assembly_id}-${md5_fragment}_fastp.json
   fastp_json_to_csv.py -s ${assembly_id}-${md5_fragment} ${assembly_id}-${md5_fragment}_fastp.json > ${assembly_id}-${md5_fragment}_fastp.csv
+  cp ${reads_1} untrimmed_R1.fastq
+  cp ${reads_2} untrimmed_R2.fastq
+  gzip -c untrimmed_R1.fastq > ${assembly_id}-${md5_fragment}_R1.fastq.gz
+  gzip -c untrimmed_R2.fastq > ${assembly_id}-${md5_fragment}_R2.fastq.gz
   """
 }
 
