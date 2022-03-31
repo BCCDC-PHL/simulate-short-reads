@@ -148,7 +148,7 @@ process fastp {
   tag { assembly_id + '-' + md5_fragment }
 
   publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_R{1,2}.fastq.gz", mode: 'copy'
-  publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_fastp.json", mode: 'copy'
+  publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_fastp.{json,csv}", mode: 'copy'
 
   input:
   tuple val(assembly_id), val(md5_fragment), path(reads_1), path(reads_2)
