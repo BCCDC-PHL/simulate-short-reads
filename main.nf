@@ -16,8 +16,14 @@ include { samtools_stats } from './modules/simulate_reads.nf'
 
 workflow {
   ch_assemblies = Channel.fromPath( params.assembly_search_path ).map{ it -> [it.baseName, it] }.unique{ it -> it[0] }
-  ch_depths = Channel.fromList([5, 15, 25, 35, 50, 75, 100, 150])
+  
   ch_replicates = Channel.fromList([1..params.replicates][0])
+
+  if (params.depths_file != 'NO_FILE') {
+    ch_depths = Channel.fromPath(params.depths_file).splitCsv(header: false)
+  } else {
+    ch_depths = Channel.of(params.depth)
+  }
 
   if (params.contaminants != 'NO_FILE') {
     ch_contaminants = Channel.fromPath(params.contaminants).splitCsv(header: true).map{ it -> [it['ID'], it['ASSEMBLY'], it['PROPORTION']] }
