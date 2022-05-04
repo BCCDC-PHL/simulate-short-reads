@@ -31,17 +31,29 @@ nextflow run dfornika/simulate-reads \
   --outdir </path/to/outdir>
 ```
 
-Several parameters are available to control the quality and quantity of the simulated reads. The pipeline will automatically create simulated outputs at
-eight mean coverage depths: 5x, 15x, 25x, 35x, 50x, 75x, 100x, 150x.
+Several parameters are available to control the quality and quantity of the simulated reads.
 
 | Parameter               | Description                                                                                                                | Default |
 |:------------------------|:---------------------------------------------------------------------------------------------------------------------------|--------:|
 | `read_length`           | Lengths of the reads to be simulated (bases).                                                                              | 150     |
+| `depth`                 | Generate sufficient reads for this average depth of coverage, across the reference sequence                                | 30      |
 | `mean_fragment_length`  | Mean of simulated fragment length distribution. Reads will be generated from either end of these fragments.                | 400     |
 | `stdev_fragment_length` | Standard deviation of the simulated fragment length distribution.                                                          | 100     |
 | `quality_shift_r1`      | The amount to shift every first-read quality score by. Positive values increase quality, negative values decrease quality. | 0       |
 | `quality_shift_r2`      | The amount to shift every second-read quality score by.                                                                    | 0       |
 | `replicates`            | Number of replicates to generate for each genome, at each depth.                                                           | 1       |
+
+### Multiple Depths
+An arbitrary list of depths can be provided in a file using the `--depths_file` flag. The file should contain a single column of numbers:
+
+```
+5
+10
+50
+100
+```
+
+Simulated reads will be generated for each reference, at each depth.
 
 ### Introducing Contamination
 Contamination can be introduced using the `--contaminants` parameter. The flag takes a `.csv` formatted file as an argument, with the following fields:
