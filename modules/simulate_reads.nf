@@ -193,6 +193,28 @@ process bwa_align {
   """
 }
 
+process downsample_regions {
+  tag { assembly_id + '-' + md5_fragment }
+
+  cpus 6
+
+  publishDir "${params.outdir}/${output_subdir}", pattern: "${assembly_id}-${md5_fragment}_downsampled.{bam,bam.bai}", mode: 'copy'
+
+  input:
+  tuple val(assembly_id), val(md5_fragment), path(alignment), path(alignment_index), path(downsample_regions_bed)
+
+  output:
+  tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_downsampled.bam"), path("${assembly_id}-${md5_fragment}_downsampled.bam.bai")
+
+  script:
+  output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
+  """
+  downsample_regions.py --bed ${downsample_regions_bed} ${alignment} | \
+    samtools view -@ 2 -b | samtools sort -@ 2 - > ${assembly_id}-${md5_fragment}_downsampled.bam
+  samtools index ${assembly_id}-${md5_fragment}_downsampled.bam
+  """
+}
+
 process qualimap_bamqc {
 
   tag { assembly_id + '-' + md5_fragment }
