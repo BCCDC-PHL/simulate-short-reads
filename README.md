@@ -64,7 +64,7 @@ ASSEMBLY
 PROPORTION
 ```
 
-...where `ID` is an identifier for the contaminant (avoid using spaces in the identifier), `ASSEMBLY` is a path to a FASTA-formatted genome that contaminant reads will be simulated from, and `PROPORTION` is a floating point number between 0 and 1 that determines the proportion of the sample that is contaminated by that genome. The sum of the values in the `PROPOTION` field should not be greater than 1.
+...where `ID` is an identifier for the contaminant (avoid using spaces in the identifier), `ASSEMBLY` is a path to a FASTA-formatted genome that contaminant reads will be simulated from, and `PROPORTION` is a floating point number between 0 and 1 that determines the proportion of the sample that is contaminated by that genome. The sum of the values in the `PROPORTION` field should not be greater than 1.
 
 ## Outputs
 The pipeline creates one output directory per set of simulated reads, below the directory provided for the `--outdir` parameter. The output directories are named
