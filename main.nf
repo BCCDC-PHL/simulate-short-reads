@@ -26,12 +26,12 @@ workflow {
   }
 
   if (params.contaminants != 'NO_FILE') {
-    ch_contaminants = Channel.fromPath(params.contaminants).splitCsv(header: true).map{ it -> [it['ID'], it['ASSEMBLY'], it['PROPORTION']] }
-    simulate_contaminant_reads(ch_contaminants)
     simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
+    ch_contaminants = Channel.fromPath(params.contaminants).splitCsv(header: true).map{ it -> [it['ID'], it['ASSEMBLY'], it['PROPORTION']] }
     ch_proportion_uncontaminated = ch_contaminants.map{ it -> Float.parseFloat(it[2]) }.reduce{ x, y -> (x + y).round(6) }
     downsample_simulated_reads(simulate_reads.out.reads.combine(ch_proportion_uncontaminated))
-    downsample_contaminant_reads(simulate_contaminant_reads.out.combine(simulate_reads.out.reads))
+    simulate_contaminant_reads(ch_contaminants.combine(simulate_reads.out.reads))
+    downsample_contaminant_reads(simulate_contaminant_reads.out.join(simulate_reads.out.reads, by: [0, 1]))
     introduce_contaminants(downsample_simulated_reads.out.join(downsample_contaminant_reads.out.uncompressed_reads.groupTuple(by: [0, 1]), by: [0, 1]))
     ch_reads = introduce_contaminants.out.reads
   } else {

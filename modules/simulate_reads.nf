@@ -42,13 +42,13 @@ process art_illumina {
 
 process simulate_contaminant_reads {
 
-    tag { contaminant_id + ' / ' + proportion}
+    tag { assembly_id + '-' + md5_fragment + ' / ' + contaminant_id + ' / ' + proportion }
 
     input:
-    tuple val(contaminant_id), path(assembly), val(proportion)
+    tuple val(contaminant_id), path(assembly), val(proportion), val(assembly_id), val(md5_fragment), path(reads_r1), path(reads_r2)
 
     output:
-    tuple val(contaminant_id), path("${contaminant_id}*_R1.fastq"), path("${contaminant_id}*_R2.fastq"), val(proportion)
+    tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}*_R1.fastq"), path("${contaminant_id}*_R2.fastq"), val(proportion)
 
     script:
     mean_fragment_length = params.mean_fragment_length
@@ -58,10 +58,15 @@ process simulate_contaminant_reads {
     read_length = params.read_length
     seed = Math.round(Math.random() * 1000000)
     """
+    contaminant_genome_size=\$(seqkit stats --tabular ${assembly} | cut -f 5 | tail -n 1)
+    num_simulated_reads_r1=\$(seqkit stats --tabular ${reads_r1} | cut -f 4 | tail -n 1)
+    num_simulated_reads_r2=\$(seqkit stats --tabular ${reads_r2} | cut -f 4 | tail -n 1)
+    num_simulated_reads=\$(( num_simulated_reads_r1 + num_simulated_reads_r2))
+    fcov=\$(calculate_required_coverage.py --num-simulated-reads \$num_simulated_reads --read-length ${read_length} --contaminant-genome-size \$contaminant_genome_size --contaminant-proportion ${proportion})
     art_illumina \
       --paired \
       --in ${assembly} \
-      --fcov 30 \
+      --fcov \$fcov \
       --len ${read_length} \
       --mflen ${mean_fragment_length} \
       --sdev ${stdev_fragment_length} \
@@ -100,7 +105,7 @@ process downsample_contaminant_reads {
   publishDir "${params.outdir}/${output_subdir}/contaminants", pattern: "${assembly_id}-${md5_fragment}-${contaminant_id}_num_contaminant_read_pairs.csv", mode: 'copy'
 
   input:
-  tuple val(contaminant_id), path(contaminant_reads_r1), path(contaminant_reads_r2), val(contaminant_proportion), val(assembly_id), val(md5_fragment), path(assembly_reads_r1), path(assembly_reads_r2)
+  tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path(contaminant_reads_r1), path(contaminant_reads_r2), val(contaminant_proportion), path(assembly_reads_r1), path(assembly_reads_r2)
 
   output:
   tuple val(assembly_id), val(md5_fragment), val(contaminant_id), path("${contaminant_id}_contaminant_R1.fastq"), path("${contaminant_id}_contaminant_R2.fastq"), emit: uncompressed_reads
@@ -123,7 +128,7 @@ process downsample_contaminant_reads {
 
 process introduce_contaminants {
 
-  tag { assembly_id + '-' + md5_fragment }
+  tag { assembly_id + '-' + md5_fragment + ' / ' + contaminant_ids }
 
   input:
   tuple val(assembly_id), val(md5_fragment), path(assembly_r1), path(assembly_r2), val(contaminant_ids), path(contaminants_r1), path(contaminants_r2)
