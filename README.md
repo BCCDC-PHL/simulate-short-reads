@@ -1,4 +1,4 @@
-# Simulate Reads
+# Simulate Short Reads
 This pipeline is designed to simulate sequencing reads from a set of reference genomes, for a variety of data quality and quantity.
 The intention of this pipeline is to be used as a tool to create datasets that can be used as part of a validation experiment for other
 microbial genomics analysis pipelines. When used in that application, the simulated datasets should be integrated into a larger validation plan
