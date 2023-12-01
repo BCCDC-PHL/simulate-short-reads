@@ -25,24 +25,28 @@ workflow {
     ch_depths = Channel.of(params.depth)
   }
 
-  if (params.contaminants != 'NO_FILE') {
-    simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
-    ch_contaminants = Channel.fromPath(params.contaminants).splitCsv(header: true).map{ it -> [it['ID'], it['ASSEMBLY'], it['PROPORTION']] }
-    ch_proportion_uncontaminated = ch_contaminants.map{ it -> Float.parseFloat(it[2]) }.reduce{ x, y -> (x + y).round(6) }
-    downsample_simulated_reads(simulate_reads.out.reads.combine(ch_proportion_uncontaminated))
-    simulate_contaminant_reads(ch_contaminants.combine(simulate_reads.out.reads))
-    downsample_contaminant_reads(simulate_contaminant_reads.out.join(simulate_reads.out.reads, by: [0, 1]))
-    introduce_contaminants(downsample_simulated_reads.out.join(downsample_contaminant_reads.out.uncompressed_reads.groupTuple(by: [0, 1]), by: [0, 1]))
-    ch_reads = introduce_contaminants.out.reads
-  } else {
-    simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
-    ch_reads = simulate_reads.out.reads
-  }
-
   main:
+    if (params.contaminants != 'NO_FILE') {
+	simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
+	ch_contaminants = Channel.fromPath(params.contaminants).splitCsv(header: true).map{ it -> [it['ID'], it['ASSEMBLY'], it['PROPORTION']] }
+	ch_proportion_uncontaminated = ch_contaminants.map{ it -> Float.parseFloat(it[2]) }.reduce{ x, y -> (x + y).round(6) }
+	downsample_simulated_reads(simulate_reads.out.reads.combine(ch_proportion_uncontaminated))
+	simulate_contaminant_reads(ch_contaminants.combine(simulate_reads.out.reads))
+	downsample_contaminant_reads(simulate_contaminant_reads.out.join(simulate_reads.out.reads, by: [0, 1]))
+	introduce_contaminants(downsample_simulated_reads.out.join(downsample_contaminant_reads.out.reads.groupTuple(by: [0, 1]), by: [0, 1]))
+	ch_reads = introduce_contaminants.out.reads
+    } else {
+	simulate_reads(ch_assemblies.combine(ch_depths).combine(ch_replicates))
+	ch_reads = simulate_reads.out.reads
+    }
+
     fastp(ch_reads)
-    bwa_align(ch_assemblies.cross(ch_reads).map{ it -> [it[1][0], it[1][1], it[1][2], it[1][3], it[0][1]] })
+
+    bwa_align(ch_assemblies.cross(ch_reads).view().map{ it -> [it[1][0], it[1][1], it[1][2], it[1][3], it[0][1]] })
+
     samtools_stats(bwa_align.out)
+
     qualimap_bamqc(bwa_align.out)
+
     qualimap_bamqc_genome_results_to_csv(qualimap_bamqc.out.genome_results)
 }
