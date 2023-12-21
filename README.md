@@ -24,7 +24,7 @@ only be recognized for input if they use one of these filename extensions: `.fa`
 To run the pipeline with default parameters:
 
 ```
-nextflow run dfornika/simulate-reads \
+nextflow run BCCDC-PHL/simulate-short-reads \
   -profile conda \
   --cache ~/.conda/envs \
   --assembly_input </path/to/assemblies> \
