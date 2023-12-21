@@ -305,13 +305,13 @@ process combine_alignment_qc {
 
     tag { assembly_id + '-' + md5_fragment }
 
-    publishDir "${params.outdir}/${output_subdir}", mode: 'copy', pattern: "${assembly_id}-${md5_fragment}_long_combined_alignment_qc.csv"
+    publishDir "${params.outdir}/${output_subdir}", mode: 'copy', pattern: "${assembly_id}-${md5_fragment}_combined_alignment_qc.csv"
 
     input:
     tuple val(assembly_id), val(md5_fragment), path(qualimap_genome_results_csv), path(samtools_stats_summary_csv)
 
     output:
-    tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_long_combined_alignment_qc.csv")
+    tuple val(assembly_id), val(md5_fragment), path("${assembly_id}-${md5_fragment}_combined_alignment_qc.csv")
 
     script:
     output_subdir = params.flat ? '' : assembly_id + '-' + md5_fragment
@@ -321,7 +321,7 @@ process combine_alignment_qc {
 	--read-type "short" \
 	--qualimap-bamqc-genome-results ${qualimap_genome_results_csv} \
 	--samtools-stats-summary ${samtools_stats_summary_csv} \
-	> ${assembly_id}-${md5_fragment}_long_combined_alignment_qc.csv
+	> ${assembly_id}-${md5_fragment}_combined_alignment_qc.csv
     """
 }
 
